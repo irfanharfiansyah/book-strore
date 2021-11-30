@@ -1,0 +1,30 @@
+version: "3"
+services:
+  php-apache-environment:
+    image: b4nd0t/Kuis2-sister
+    container_name: php-apache
+    depends_on:
+      - db
+    volumes:
+      - .php/src:/var/www/html/
+    ports:
+      - 8000:80
+    networks:
+      - backend
+
+  db:
+    container_name: db
+    image: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: book_store 
+    ports:
+      - "3306:3306"
+    volumes:
+      - db:/var/lib/mysql
+      - ./book_store.sql:/docker-entrypoint-initdb.d/book_store.sql
+    networks:
+      - backend
+volumes:
+  db:
