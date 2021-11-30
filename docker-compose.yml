@@ -1,7 +1,7 @@
 version: "3"
 services:
   php-apache-environment:
-    image: b4nd0t/Kuis2-sister
+    image: b4nd0t/kuis2-sister
     container_name: php-apache
     depends_on:
       - db
@@ -28,3 +28,11 @@ services:
       - backend
 volumes:
   db:
+
+networks:
+  backend:
+    name: backend-network
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.0.0.0/24
