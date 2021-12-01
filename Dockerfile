@@ -25,7 +25,7 @@ COPY native.conf /etc/apache2/sites-available/
 RUN chgrp -R www-data /var/www/html
 
 RUN a2dissite 000-default.conf; \
-    a2ensite native.conf; \
+    a2ensite web.conf; \
     a2enmod rewrite
 
 COPY . .
