@@ -19,7 +19,7 @@ services:
     build:
       context: '.'
       dockerfile: Dockerfile
-    container_name: web-native
+    container_name: web-php
     ports:
       - 8000:80
     volumes:
@@ -29,7 +29,7 @@ services:
     networks:
       backend:
         aliases:
-          - webnative
+          - webphp
 
 networks:
   backend:
