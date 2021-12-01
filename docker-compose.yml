@@ -1,38 +1,36 @@
-version: "3"
+version: "3.8"
+
 services:
-  php-apache-environment:
-    image: b4nd0t/kuis2-sister
-    container_name: php-apache
-    depends_on:
-      - db
+  mysqldb:
+    image: mysql:latest
+    container_name: mysqldb
     volumes:
-      - .php/src:/var/www/html/
+      - ./mysqldb:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD= admin
+      - MYSQL_DATABASE= bookstore
+      - MYSQL_USER= admin
+      - MYSQL_PASSWORD= Admin_123
+    networks:
+      backend:
+        aliases:
+          - mysqldb
+  app:
+    build:
+      context: '.'
+      dockerfile: Dockerfile
+    container_name: web-native
     ports:
       - 8000:80
-    networks:
-      - backend
-
-  db:
-    container_name: db
-    image: mysql
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: admin
-      MYSQL_DATABASE: book_store 
-    ports:
-      - "3306:3306"
     volumes:
-      - db:/var/lib/mysql
-      - ./book_store.sql:/docker-entrypoint-initdb.d/book_store.sql
+      - ./:/var/www/html
+    depends_on:
+      - mysqldb
     networks:
-      - backend
-volumes:
-  db:
+      backend:
+        aliases:
+          - webnative
 
 networks:
   backend:
     name: backend-network
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.0.0.0/24
