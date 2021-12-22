@@ -31,8 +31,8 @@ jobs:
 
       - name: 'Build and push'
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/hello-react .
-          docker push ${{ secrets.DOCKERHUB_USERNAME}}/hello-react
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/book-store .
+          docker push ${{ secrets.DOCKERHUB_USERNAME}}/book-store
       - name: 'Write config'
         run: |
           mkdir ~/.oci
