@@ -1,4 +1,4 @@
-FFROM php:8.0-apache
+FROM php:8.0-apache
 
 WORKDIR /var/www/html
 
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install zip \
     && docker-php-source delete
 
-COPY native.conf /etc/apache2/sites-available/
+COPY web.conf /etc/apache2/sites-available/
 
 RUN chgrp -R www-data /var/www/html
 
