@@ -1,10 +1,10 @@
 <?php
 
 function Createdb(){
-    $servername = "10.0.0.125";
+    $servername = "10.0.0.202";
     $username = "admin";
     $password = "Admin_123";
-    $dbname = "bookstore";
+    $dbname = "book-store";
 
     // create connection
     $con = mysqli_connect($servername, $username, $password);
