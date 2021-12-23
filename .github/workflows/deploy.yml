@@ -9,19 +9,8 @@ jobs:
     name: Build and Deploy
     runs-on: ubuntu-latest
     steps:
-      - name: 'Start build job'
-        run: |
-          echo "Starting the build job"
       - name: 'Checkout'
         uses: actions/checkout@v2
-
-      # - name: 'Setup nodejs'
-      #   uses: actions/setup-node@v2
-      #   with:
-      #     node-version: '16'
-
-      # - run: yarn install
-      # - run: yarn build
 
       - name: 'Login to Dockerhub'
         uses: docker/login-action@v1
@@ -55,13 +44,48 @@ jobs:
         run: |
           oci setup repair-file-permissions --file /home/runner/.oci/config
           oci setup repair-file-permissions --file /home/runner/.oci/oci_api_key.pem
+      - name: 'Check Existing MySQL Database'
+        run: |
+          echo "MySQL_ID=$( \
+            oci mysql db-system list \
+            --lifecycle-state ACTIVE \
+            --compartment-id ${{secrets.VM_COMPARTMENT_OCID}} \
+            --display-name book-store \
+            --query 'data[0].id' \
+            --raw-output \
+            )" >> $GITHUB_ENV
+      - name: 'Create MySQL Database'
+        if: ${{!env.MySQL_ID}}
+        run: |
+          echo "MySQL_ID=$( \
+            oci mysql db-system create \
+            --admin-password ${{ secrets.DB_PASS }} \
+            --admin-username ${{ secrets.DB_USER }} \
+            -c ${{secrets.VM_COMPARTMENT_OCID}} \
+            --availability-domain ${{secrets.VM_AVAILABILITY_DOMAIN}} \
+            --shape-name MySQL.VM.Standard.E3.1.8GB \
+            --display-name book-store \
+            --subnet-id ${{secrets.VM_SUBNET_OCID}} \
+            --wait-for-state SUCCEEDED \
+            --query 'data.resources[0].identifier' \
+            --raw-output \
+            --data-storage-size-in-gbs 50 \
+          )" >> $GITHUB_ENV
+      - name: 'Get MySQL Database IP'
+        run: |
+          echo "MySQL_IP=$( \
+            oci mysql db-system get \
+            --db-system-id ${{env.MySQL_ID}} \
+            --query 'data."ip-address"' \
+            --raw-output \
+            )" >> $GITHUB_ENV
       - name: 'Check Existing Instance'
         run: |
           echo "INSTANCE_OCID=$( \
             oci compute instance list \
             --lifecycle-state RUNNING \
             --compartment-id ${{secrets.VM_COMPARTMENT_OCID}} \
-            --display-name cicd-UAS \
+            --display-name book-store \
             --query "data [0].id" \
             --raw-output \
             )" >> $GITHUB_ENV
@@ -75,7 +99,7 @@ jobs:
             --shape ${{secrets.VM_SHAPE}} \
             --shape-config '{"memoryInGBs": 1, "ocpus": 1}' \
             --assign-public-ip true \
-            --display-name cicd-UAS \
+            --display-name book-store \
             --image-id ${{secrets.VM_CUSTOM_IMAGE_OCID}} \
             --ssh-authorized-keys-file /home/runner/.oci/oci_api_key_public.pem \
             --subnet-id ${{secrets.VM_SUBNET_OCID}} \
@@ -107,20 +131,15 @@ jobs:
           source: "docker-compose.yml"
           target: "./"
 
+
       - name: 'Running Docker Compose'
         uses: appleboy/ssh-action@master
         with:
           host: ${{env.INSTANCE_IP}}
           username: opc
           key: ${{secrets.OCI_KEY_FILE}}
+          command_timeout: 200m
           script: |
-            sudo yum install -y yum-utils
-            sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-            sudo yum install -y docker-ce docker-ce-cli containerd.io
-            sudo systemctl restart docker
-            sudo firewall-cmd --zone=docker --add-service=http --permanent
-            sudo firewall-cmd --reload
-            sudo pip3 install docker-compose
             sudo yum install -y yum-utils curl
             sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
             sudo yum install -y docker-ce docker-ce-cli containerd.io
@@ -128,4 +147,23 @@ jobs:
             sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
             sudo chmod +x /usr/local/bin/docker-compose
             sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
-            sudo /usr/local/bin/docker-compose up -d
+            sudo firewall-cmd --zone=docker --add-service=http --permanent
+            sudo firewall-cmd --reload
+            sudo docker-compose up -d
+            # sudo docker exec -i book-store bash -c "chmod -R 777 /var/www/html/storage/"
+            # sudo docker exec -i book-store bash -c '
+            # if [ ! -f .env ]; then
+            # cp .env.example .env
+            # chmod 777 .env
+            mysql -u ${{secrets.DB_USER}} -p${{secrets.DB_PASS}} -h ${{env.MySQL_IP}} -e "CREATE DATABASE IF NOT EXISTS book-store;"
+            echo -e "DB_HOST=${{env.MySQL_IP}}\nDB_USERNAME=${{secrets.DB_USER}}\nDB_PASSWORD=${{secrets.DB_PASS}}" >> .env
+            # chmod -R 777 /var/www/html/storage/
+            # composer install
+            # php artisan key:generate
+            # php artisan migrate
+            # fi '
+            sudo docker exec -i book-store bash -c '
+            file=`mysql -u ${{secrets.DB_USER}} -p${{secrets.DB_PASS}} -h ${{env.MySQL_IP}} book-store -e "SELECT COUNT(*) as count FROM users"  | cut -d \t -f 2`
+            # if [ $file == "0" ]; then
+            # php artisan db:seed --class=UserSeeder
+            # fi '
